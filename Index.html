@@ -1,0 +1,986 @@
+```html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador de Evaluación - Impulso Lector</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            fredoka: ['Fredoka', 'sans-serif'],
+            nunito: ['Nunito', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              purple: '#6C5CE7',
+              pink: '#FD79A8',
+              yellow: '#FDCB6E',
+              green: '#00B894',
+              blue: '#0984E3',
+              orange: '#E17055'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Nunito', sans-serif;
+      background-color: #F4F7FE;
+      touch-action: manipulation;
+      user-select: none;
+    }
+    
+    .font-heading {
+      font-family: 'Fredoka', sans-serif;
+    }
+
+    .card-option {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .card-option:hover {
+      transform: translateY(-4px);
+    }
+
+    .card-option:active {
+      transform: translateY(1px);
+    }
+
+    .marked-x {
+      position: relative;
+    }
+
+    .marked-x::after {
+      content: 'X';
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Fredoka', sans-serif;
+      font-size: 5rem;
+      font-weight: 800;
+      color: #E17055;
+      background-color: rgba(255, 255, 255, 0.9);
+      border-radius: 1.5rem;
+      z-index: 10;
+      animation: popIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes popIn {
+      0% { transform: scale(0); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .talking-avatar {
+      animation: pulse-avatar 1.5s infinite alternate ease-in-out;
+    }
+
+    .talking-avatar.speaking {
+      animation: bounce-speak 0.6s infinite alternate ease-in-out;
+      border-color: #00B894;
+    }
+
+    @keyframes pulse-avatar {
+      0% { transform: scale(1); }
+      100% { transform: scale(1.06); }
+    }
+
+    @keyframes bounce-speak {
+      0% { transform: translateY(0) scale(1); }
+      100% { transform: translateY(-6px) scale(1.08); }
+    }
+
+    .speech-bubble {
+      position: relative;
+      background: #FFFFFF;
+      border-radius: 1.5rem;
+    }
+
+    .speech-bubble::after {
+      content: '';
+      position: absolute;
+      left: -12px;
+      top: 24px;
+      width: 0;
+      height: 0;
+      border-top: 10px solid transparent;
+      border-bottom: 10px solid transparent;
+      border-right: 14px solid #FFFFFF;
+    }
+
+    @media (max-width: 640px) {
+      .speech-bubble::after {
+        display: none;
+      }
+    }
+
+    .progress-bar-fill {
+      transition: width 0.4s ease-out;
+    }
+  </style>
+</head>
+<body class="min-h-screen text-slate-800 flex flex-col justify-between selection:bg-brand-purple selection:text-white">
+
+  <!-- ENCABEZADO Y BARRA DE NAVEGACIÓN -->
+  <header class="bg-white border-b-2 border-slate-100 shadow-sm sticky top-0 z-30">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-2xl bg-brand-purple flex items-center justify-center text-white text-2xl font-bold shadow-md shadow-brand-purple/30">
+          <i class="fa-solid fa-graduation-cap"></i>
+        </div>
+        <div>
+          <h1 class="font-heading font-bold text-lg md:text-xl text-slate-800 leading-none">Prueba Impulso Lector</h1>
+          <p class="text-xs text-slate-500 font-semibold mt-1">2° Básico • Pregunta a Pregunta</p>
+        </div>
+      </div>
+
+      <!-- Control de Estado de Pregunta, Voz y Rincón Extra -->
+      <div class="flex items-center gap-2">
+        <button onclick="abrirRincon()" class="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-brand-purple px-3 py-2 rounded-2xl text-xs font-extrabold transition-all border border-indigo-200">
+          <i class="fa-solid fa-star text-amber-400"></i>
+          <span class="hidden md:inline">Rincón de Espera</span>
+        </button>
+
+        <button id="btn-audio-toggle" onclick="toggleAudio()" class="flex items-center gap-2 bg-brand-yellow/30 hover:bg-brand-yellow/40 text-amber-900 px-3 py-2 rounded-2xl text-sm font-bold transition-all shadow-sm">
+          <i class="fa-solid fa-volume-high text-amber-700 text-base" id="audio-icon"></i>
+          <span class="hidden sm:inline" id="audio-btn-text">Voz Activada</span>
+        </button>
+        
+        <div class="bg-slate-100 px-3.5 py-2 rounded-2xl text-xs font-extrabold text-slate-700 border border-slate-200">
+          <span id="current-step-num" class="text-brand-purple text-sm font-heading">1</span> / <span id="total-steps-num">1</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Barra de progreso -->
+    <div class="w-full bg-slate-100 h-3">
+      <div id="progress-bar" class="bg-brand-purple h-3 progress-bar-fill w-[5%]"></div>
+    </div>
+  </header>
+
+  <!-- CONTENIDO PRINCIPAL -->
+  <main class="max-w-3xl mx-auto px-4 py-6 w-full flex-grow">
+
+    <!-- CARTEL DE BIENVENIDA E INSTRUCCIÓN DIRECTA PARA ESTUDIANTES -->
+    <div id="banner-estudiante" class="mb-5 bg-amber-400/20 border-2 border-amber-300 rounded-2xl p-4 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <span class="text-3xl">👋</span>
+        <div>
+          <h2 class="font-heading font-bold text-slate-800 text-sm md:text-base">¡Escucha con atención la voz del profesor!</h2>
+          <p class="text-xs font-semibold text-slate-600">Al terminar de responder cada pregunta, cruza los brazos sobre la mesa.</p>
+        </div>
+      </div>
+      <button onclick="cerrarBannerEstudiante()" class="text-slate-500 hover:text-slate-800 p-1">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+    </div>
+
+    <!-- SECCIÓN PROFESOR VIRTUAL Y GUIÓN -->
+    <section class="mb-5 bg-white rounded-3xl p-4 md:p-5 shadow-sm border-2 border-indigo-50 flex flex-col sm:flex-row gap-4 items-center">
+      <div class="flex items-center gap-3 min-w-[80px]">
+        <button id="avatar-btn" onclick="reproducirAudioActual()" class="talking-avatar w-16 h-16 rounded-full bg-indigo-100 border-4 border-brand-purple flex items-center justify-center text-brand-purple text-3xl shadow-md hover:scale-105 transition-transform active:scale-95" title="Hacer clic para escuchar de nuevo">
+          <i class="fa-solid fa-chalkboard-user" id="avatar-icon"></i>
+        </button>
+      </div>
+
+      <div class="speech-bubble p-4 border border-slate-200/80 flex-grow w-full text-center sm:text-left">
+        <div class="flex items-center justify-between mb-1">
+          <span id="act-category" class="text-xs font-bold text-brand-purple uppercase tracking-wider bg-indigo-50 px-2.5 py-0.5 rounded-md">Instrucción</span>
+          <button id="btn-repeat-speech" onclick="reproducirAudioActual()" class="text-brand-purple hover:bg-indigo-50 px-2.5 py-1 rounded-xl text-xs font-extrabold flex items-center gap-1 transition-colors">
+            <i class="fa-solid fa-play text-[10px]" id="repeat-icon"></i> <span id="repeat-text">Repetir voz</span>
+          </button>
+        </div>
+        <p id="guion-text" class="text-base md:text-lg text-slate-700 font-bold leading-relaxed">
+          Cargando instrucción...
+        </p>
+      </div>
+    </section>
+
+    <!-- TARJETA PRINCIPAL DE LA PREGUNTA ACTUAL -->
+    <section id="activity-container" class="bg-white rounded-3xl p-6 md:p-8 shadow-md border-2 border-slate-100 min-h-[380px] flex flex-col justify-between">
+      <!-- Se genera dinámicamente pregunta por pregunta -->
+    </section>
+
+    <!-- MODAL FINAL DE RESULTADOS -->
+    <div id="modal-final" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl p-6 md:p-8 max-w-lg w-full text-center shadow-2xl animate-popIn">
+        <div class="w-24 h-24 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-5xl mx-auto mb-4 shadow-inner">
+          <i class="fa-solid fa-trophy"></i>
+        </div>
+        <h2 class="font-heading text-3xl font-bold text-slate-800 mb-2">¡Felicitaciones!</h2>
+        <p class="text-slate-600 text-base mb-6 font-semibold">
+          Has completado todos los ejercicios paso a paso. Recuerda cruzar los brazos sobre la mesa para indicar que terminaste.
+        </p>
+
+        <div class="bg-indigo-50/70 border border-indigo-100 p-4 rounded-2xl mb-6 flex justify-around text-center">
+          <div>
+            <span class="block text-3xl font-heading font-bold text-brand-purple" id="stat-respuestas">0</span>
+            <span class="text-xs text-slate-500 font-extrabold">Preguntas Respondidas</span>
+          </div>
+          <div class="border-r border-slate-200"></div>
+          <div>
+            <span class="block text-3xl font-heading font-bold text-brand-green">100%</span>
+            <span class="text-xs text-slate-500 font-extrabold">Completado</span>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-3">
+          <button onclick="abrirRincon()" class="w-full py-3.5 bg-brand-yellow hover:bg-amber-400 text-amber-950 rounded-2xl font-bold text-base shadow-md transition-all flex items-center justify-center gap-2">
+            <i class="fa-solid fa-gamepad"></i> Ir al Rincón de Espera (Mini-juegos)
+          </button>
+          <button onclick="reiniciarSimulador()" class="w-full py-3.5 bg-brand-purple hover:bg-indigo-700 text-white rounded-2xl font-bold text-base shadow-md transition-all flex items-center justify-center gap-2">
+            <i class="fa-solid fa-rotate-right"></i> Volver a Practicar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL RINCÓN DE ESPERA / ACTIVIDADES EXTRA -->
+    <div id="modal-rincon" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl p-6 md:p-8 max-w-lg w-full text-center shadow-2xl animate-popIn relative">
+        <button onclick="cerrarRincon()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+
+        <div class="w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-4xl mx-auto mb-3">
+          <i class="fa-solid fa-face-smile-beam"></i>
+        </div>
+
+        <h2 class="font-heading text-2xl font-bold text-slate-800 mb-1">Rincón de Espera</h2>
+        <p class="text-xs text-slate-500 font-semibold mb-6">Si ya terminaste o estás esperando a tus compañeros, elige una actividad en silencio:</p>
+
+        <div class="grid grid-cols-1 gap-3 text-left">
+          <div class="p-4 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-between">
+            <div>
+              <h3 class="font-heading font-bold text-brand-purple text-base">✏️ Dibujo en Silencio</h3>
+              <p class="text-xs text-slate-600 font-medium">Dibuja en tu hoja a los dos ciempiés del cuento.</p>
+            </div>
+            <span class="text-2xl">🎨</span>
+          </div>
+
+          <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-between">
+            <div>
+              <h3 class="font-heading font-bold text-brand-green text-base">🧘 Brazos Cruzados</h3>
+              <p class="text-xs text-slate-600 font-medium">Mantén los brazos cruzados y espera las instrucciones.</p>
+            </div>
+            <span class="text-2xl">🤫</span>
+          </div>
+
+          <div class="p-4 rounded-2xl bg-orange-50 border border-orange-100 flex items-center justify-between">
+            <div>
+              <h3 class="font-heading font-bold text-brand-orange text-base">📖 Lectura Silenciosa</h3>
+              <p class="text-xs text-slate-600 font-medium">Abre tu libro de lectura favorito sin hacer ruido.</p>
+            </div>
+            <span class="text-2xl">📚</span>
+          </div>
+        </div>
+
+        <button onclick="cerrarRincon()" class="mt-6 w-full py-3 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-2xl transition-all text-sm">
+          Volver a la Evaluación
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- BARRA INFERIOR CON NAVEGACIÓN PASO A PASO -->
+  <footer class="bg-white border-t-2 border-slate-100 py-3.5 px-4 sticky bottom-0 z-20">
+    <div class="max-w-3xl mx-auto flex items-center justify-between gap-3">
+      <button id="btn-prev" onclick="cambiarPaso(-1)" class="px-4 py-3 rounded-2xl border-2 border-slate-200 font-extrabold text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-sm flex items-center gap-2">
+        <i class="fa-solid fa-arrow-left"></i> Anterior
+      </button>
+
+      <div class="text-center">
+        <p class="text-xs text-slate-400 font-black uppercase tracking-wider hidden sm:block">Mucha atención a la instrucción</p>
+      </div>
+
+      <button id="btn-next" onclick="cambiarPaso(1)" class="px-6 py-3 rounded-2xl bg-brand-purple hover:bg-indigo-700 text-white font-extrabold transition-all shadow-md shadow-brand-purple/20 text-base flex items-center gap-2">
+        Siguiente <i class="fa-solid fa-arrow-right"></i>
+      </button>
+    </div>
+  </footer>
+
+  <!-- LÓGICA PASO A PASO Y CONEXIÓN TTS CON GEMINI API -->
+  <script>
+    // LISTA DESAGREGADA PREGUNTA A PREGUNTA CON GUIONES FIDELIZADOS
+    const listaPasos = [
+      // ACTIVIDAD 1: CONCIENCIA FONOLÓGICA
+      {
+        actividadNum: 1,
+        categoria: "Actividad 1 • Ejemplo demostrativo",
+        guionDocente: "Actividad 1. En esta actividad aparece una imagen y tres números. Deben marcar con una X la cantidad de sonidos que tiene cada palabra. Por ejemplo, la palabra pera, ¿cuántos sonidos tiene?: /p/ – /e/ – /r/ – /a/. Tiene cuatro sonidos, entonces marco la alternativa B. Ahora, en silencio, ustedes harán lo mismo con las siguientes palabras. El que finaliza, puede cruzar los brazos sobre la mesa.",
+        esEjemplo: true,
+        tipo: "sonidos",
+        palabra: "pera (Ejemplo)",
+        imagen: "🍐",
+        opciones: [3, 4, 5],
+        correcta: 1
+      },
+      {
+        actividadNum: 1,
+        categoria: "Actividad 1 • Pregunta 1",
+        guionDocente: "Observa la imagen de la PIÑA. En silencio, cuenta los sonidos de la palabra PIÑA y marca con una X la alternativa correcta.",
+        id: "p1_1",
+        tipo: "sonidos",
+        palabra: "piña",
+        imagen: "🍍",
+        opciones: [3, 4, 5],
+        correcta: 1
+      },
+      {
+        actividadNum: 1,
+        categoria: "Actividad 1 • Pregunta 2",
+        guionDocente: "Observa la imagen de la UVA. Cuenta sus sonidos y marca con una X la cantidad correcta de sonidos.",
+        id: "p1_2",
+        tipo: "sonidos",
+        palabra: "uva",
+        imagen: "🍇",
+        opciones: [2, 3, 4],
+        correcta: 1
+      },
+      {
+        actividadNum: 1,
+        categoria: "Actividad 1 • Pregunta 3",
+        guionDocente: "Observa la imagen de la SANDÍA. En silencio, cuenta los sonidos de la palabra SANDÍA y marca con una X la opción correcta.",
+        id: "p1_3",
+        tipo: "sonidos",
+        palabra: "sandía",
+        imagen: "🍉",
+        opciones: [5, 6, 7],
+        correcta: 1
+      },
+      {
+        actividadNum: 1,
+        categoria: "Actividad 1 • Pregunta 4",
+        guionDocente: "Observa la imagen de la MANZANA. Cuenta sus sonidos en silencio y marca con una X el número que corresponda.",
+        id: "p1_4",
+        tipo: "sonidos",
+        palabra: "manzana",
+        imagen: "🍎",
+        opciones: [6, 7, 8],
+        correcta: 1
+      },
+
+      // ACTIVIDAD 2: CONOCIMIENTO DE LO IMPRESO
+      {
+        actividadNum: 2,
+        categoria: "Actividad 2 • Ejemplo demostrativo",
+        guionDocente: "Actividad 2. En esta actividad escucharán una pregunta y marcarán cuál de las tres opciones es la respuesta correcta. Por ejemplo: Pregunta 0, ¿cuál es una letra minúscula? Observamos las tres opciones y marcamos con una X el recuadro de la respuesta correcta; en este caso, es la opción C porque tiene una letra ñ minúscula. Entonces, en silencio escuchamos cada pregunta y respondemos marcando con una X.",
+        esEjemplo: true,
+        tipo: "opcion_texto",
+        pregunta: "Ejemplo: ¿Cuál es una letra minúscula?",
+        opciones: ["M", "12", "ñ"],
+        correcta: 2
+      },
+      {
+        actividadNum: 2,
+        categoria: "Actividad 2 • Pregunta 1",
+        guionDocente: "Pregunta 1. ¿Cuántas palabras tiene la oración “Mateo fue a la tienda”? Escucha bien y marca con una X la respuesta correcta.",
+        id: "p2_1",
+        tipo: "opcion_texto",
+        pregunta: "¿Cuántas palabras tiene la oración “Mateo fue a la tienda”?",
+        opciones: ["3 palabras", "5 palabras", "7 palabras"],
+        correcta: 1
+      },
+      {
+        actividadNum: 2,
+        categoria: "Actividad 2 • Pregunta 2",
+        guionDocente: "Pregunta 2. ¿Cuál es una palabra? Revisa las tres opciones y marca la casilla correspondiente con una X.",
+        id: "p2_2",
+        tipo: "opcion_texto",
+        pregunta: "¿Cuál es una palabra?",
+        opciones: ["sol", "m", "123"],
+        correcta: 0
+      },
+      {
+        actividadNum: 2,
+        categoria: "Actividad 2 • Pregunta 3",
+        guionDocente: "Pregunta 3. ¿Cuál es un poema? Escucha y observa los textos para marcar tu respuesta con una X.",
+        id: "p2_3",
+        tipo: "opcion_texto",
+        pregunta: "¿Cuál de estos textos es un poema?",
+        opciones: [
+          "Había una vez un perro que volaba...",
+          "En el alto cielo\nbrilla una estrella,\ncon su luz dorada\ntan bonita y bella.",
+          "Ingredientes: 2 manzanas, 1 plátano y miel."
+        ],
+        correcta: 1
+      },
+      {
+        actividadNum: 2,
+        categoria: "Actividad 2 • Pregunta 4",
+        guionDocente: "Pregunta 4. ¿En cuál de estas portadas está marcado el autor del libro? Marca la alternativa correcta con una X.",
+        id: "p2_4",
+        tipo: "opcion_texto",
+        pregunta: "¿En cuál de estas portadas está marcado el autor del libro?",
+        opciones: [
+          "Título: El Bosque Encantado\n(Sin nombre de autor)",
+          "Por: María Marcela Gómez\n(Autora destacada)",
+          "Editorial Infantil 2024\n(Solo editorial)"
+        ],
+        correcta: 1
+      },
+
+      // ACTIVIDAD 3: DECODIFICACIÓN
+      {
+        actividadNum: 3,
+        categoria: "Actividad 3 • Ejemplo demostrativo",
+        guionDocente: "Actividad 3. Observa cada imagen y marca con una X la palabra que le corresponda. Por ejemplo, en la pregunta cero se muestra una sopa. Debemos leer cada palabra y descubrir en cuál de estas opciones dice “sopa”. En la opción C dice “sopa”. Ahora, en silencio, cada uno observará las siguientes imágenes, leerá las tres palabras que la acompañan y marcará con una X la palabra correcta.",
+        esEjemplo: true,
+        tipo: "decodificacion",
+        imagen: "🍲",
+        opciones: ["sapo", "sol", "sopa"],
+        correcta: 2
+      },
+      {
+        actividadNum: 3,
+        categoria: "Actividad 3 • Pregunta 1",
+        guionDocente: "Observa la imagen del gato. Lee en silencio las tres palabras y marca con una X la palabra correcta.",
+        id: "p3_1",
+        tipo: "decodificacion",
+        imagen: "🐱",
+        opciones: ["gato", "gota", "goma"],
+        correcta: 0
+      },
+      {
+        actividadNum: 3,
+        categoria: "Actividad 3 • Pregunta 2",
+        guionDocente: "Observa la imagen del sol. Lee atentamente las opciones y marca con una X la palabra correcta.",
+        id: "p3_2",
+        tipo: "decodificacion",
+        imagen: "☀️",
+        opciones: ["sal", "sol", "son"],
+        correcta: 1
+      },
+      {
+        actividadNum: 3,
+        categoria: "Actividad 3 • Pregunta 3",
+        guionDocente: "Observa la imagen del libro. Lee en voz baja las alternativas y marca con una X la palabra correspondiente.",
+        id: "p3_3",
+        tipo: "decodificacion",
+        imagen: "📖",
+        opciones: ["libre", "libro", "lindo"],
+        correcta: 1
+      },
+
+      // ACTIVIDAD 4: DECODIFICACIÓN Y ASOCIACIÓN NÚMERO-IMAGEN
+      {
+        actividadNum: 4,
+        categoria: "Actividad 4 • Ejemplo demostrativo",
+        guionDocente: "Actividad 4. En esta actividad deben leer cada palabra y escribir su número en la imagen que le corresponda. Por ejemplo, en el número cero dice “gitana” y en las imágenes deben buscar cuál es la gitana y escribir en el recuadro el número 0. Ahora, en silencio, lean el resto de palabras, busquen la imagen que le corresponda y en el recuadro escriban su número. El que finaliza puede cruzar los brazos sobre la mesa.",
+        esEjemplo: true,
+        tipo: "numero_asociacion",
+        palabras: ["0. gitana", "1. casa", "2. perro", "3. flor"],
+        imagen: "💃",
+        label: "Gitana (Ejemplo)",
+        correctaNum: 0
+      },
+      {
+        actividadNum: 4,
+        categoria: "Actividad 4 • Pregunta 1",
+        guionDocente: "Lee la lista de palabras de la izquierda. Busca la imagen del perrito y escribe en la casilla el número que le corresponda.",
+        id: "p4_1",
+        tipo: "numero_asociacion",
+        palabras: ["1. casa", "2. perro", "3. flor", "4. pelota"],
+        imagen: "🐶",
+        label: "Perro",
+        correctaNum: 2
+      },
+      {
+        actividadNum: 4,
+        categoria: "Actividad 4 • Pregunta 2",
+        guionDocente: "Lee nuevamente la lista de palabras. Observa la pelota y escribe dentro de la casilla el número que corresponde a la palabra pelota.",
+        id: "p4_2",
+        tipo: "numero_asociacion",
+        palabras: ["1. casa", "2. perro", "3. flor", "4. pelota"],
+        imagen: "⚽",
+        label: "Pelota",
+        correctaNum: 4
+      },
+
+      // ACTIVIDAD 5: COMPRENSIÓN ORAL - LECTURA DEL CUENTO Y PREGUNTAS
+      {
+        actividadNum: 5,
+        categoria: "Actividad 5 • Cuentacuentos: El Ciempiés Travieso",
+        guionDocente: "Actividad 5. En esta actividad escucharán un texto que les leeré en voz alta y luego responderán preguntas. El texto se titula “El ciempiés travieso”. Para que todos puedan escuchar, deben mantener el silencio y prestar atención.",
+        tipo: "cuento_lectura",
+        titulo: "El ciempiés travieso",
+        textoCuento: "Había una vez un par de amigos ciempiés que salieron de excursión por el bosque. Como eran dos, decidieron dividir las tareas. Uno de ellos llevaba un mapa del lugar y se encargaba de indicar la dirección correcta. El otro llevaba una canasta en su lomo con la comida. Y así partieron. El ciempiés que estaba a cargo de guiarlos era muy travieso y le gustaba hacer bromas. Me apresuraré para buscar un lugar para acampar y comer, dijo el ciempiés travieso. No puedo caminar más rápido, la comida es demasiado pesada, protestó su amigo. Descuida, dejaré mis huellas, tú solo síguelas, respondió el primero. El ciempiés travieso se adelantó y cuando se encontraba solo, comenzó a moverse en círculos para dejar miles de huellas que apuntaban en todas las direcciones posibles. Y, riendo a carcajadas, avanzó imaginando la cara de su amigo. Cuando su amigo llegó, como no supo hacia dónde ir, decidió volver al punto de partida siguiendo sus propias huellas. Y así se marchó, con la comida para dos. El ciempiés travieso, por jugar una broma pesada, se quedó sin el paseo, sin la comida y sin saber cómo regresar porque sus propias huellas lo marearon."
+      },
+      {
+        actividadNum: 5,
+        categoria: "Actividad 5 • Pregunta 1",
+        guionDocente: "Ahora leeré las preguntas sobre el texto que escucharon. Pregunta 1: ¿A qué fueron al bosque los amigos ciempiés? Marca con una X la opción correcta.",
+        id: "p5_1",
+        tipo: "opcion_emoji",
+        pregunta: "¿A qué fueron al bosque los amigos ciempiés?",
+        opciones: [
+          { label: "A trabajar", emoji: "🛠️" },
+          { label: "De excursión", emoji: "⛺" },
+          { label: "A cortar leña", emoji: "🪵" }
+        ],
+        correcta: 1
+      },
+      {
+        actividadNum: 5,
+        categoria: "Actividad 5 • Pregunta 2",
+        guionDocente: "Pregunta 2: ¿Cómo se repartieron las tareas los amigos ciempiés? Marca con una X la respuesta correcta.",
+        id: "p5_2",
+        tipo: "opcion_emoji",
+        pregunta: "¿Cómo se repartieron las tareas los amigos ciempiés?",
+        opciones: [
+          { label: "Uno el mapa, otro la comida", emoji: "🗺️" },
+          { label: "Ambos llevaron mochilas", emoji: "🎒" },
+          { label: "Ninguno llevó nada", emoji: "❌" }
+        ],
+        correcta: 0
+      },
+      {
+        actividadNum: 5,
+        categoria: "Actividad 5 • Pregunta 3",
+        guionDocente: "Pregunta 3: ¿Cuál era la intención del ciempiés travieso al adelantarse? Marca con una X la alternativa correcta.",
+        id: "p5_3",
+        tipo: "opcion_emoji",
+        pregunta: "¿Cuál era la intención del ciempiés travieso al adelantarse?",
+        opciones: [
+          { label: "Comerse todo solo", emoji: "🍎" },
+          { label: "Hacer una broma", emoji: "🤪" },
+          { label: "Buscar agua dulce", emoji: "💧" }
+        ],
+        correcta: 1
+      },
+      {
+        actividadNum: 5,
+        categoria: "Actividad 5 • Pregunta 4",
+        guionDocente: "Pregunta 4: ¿Por qué el plan del ciempiés travieso no resultó? Marca con una X la opción adecuada.",
+        id: "p5_4",
+        tipo: "opcion_emoji",
+        pregunta: "¿Por qué el plan del ciempiés travieso no resultó?",
+        opciones: [
+          { label: "Su amigo regresó con la comida", emoji: "↩️" },
+          { label: "Empezó a llover fuerte", emoji: "🌧️" },
+          { label: "Encontraron otros animales", emoji: "🐰" }
+        ],
+        correcta: 0
+      },
+
+      // ACTIVIDAD 6: VOCABULARIO
+      {
+        actividadNum: 6,
+        categoria: "Actividad 6 • Ejemplo demostrativo",
+        guionDocente: "Actividad 6. Deben escuchar cada palabra que diré en voz alta y luego marcar con una X la imagen que represente a esa palabra. Por ejemplo, si yo digo “tornillo”, ¿cuál es el dibujo correcto para “tornillo”? Observan las tres imágenes y marcan con una X la opción C. En silencio y muy atentos escuchen las palabras y luego escojan la imagen correcta.",
+        esEjemplo: true,
+        tipo: "opcion_emoji",
+        pregunta: "Ejemplo: Palabra TORNILLO",
+        opciones: [
+          { label: "Clavo", emoji: "📍" },
+          { label: "Martillo", emoji: "🔨" },
+          { label: "Tornillo", emoji: "🔩" }
+        ],
+        correcta: 2
+      },
+      {
+        actividadNum: 6,
+        categoria: "Actividad 6 • Pregunta 1: ÁCIDO",
+        guionDocente: "Palabra 1: ÁCIDO. Escucha con atención y marca con una X la imagen que representa algo ÁCIDO.",
+        id: "p6_1",
+        tipo: "opcion_emoji",
+        pregunta: "Palabra 1: ÁCIDO",
+        opciones: [
+          { label: "Limón", emoji: "🍋" },
+          { label: "Pastel", emoji: "🍰" },
+          { label: "Pan", emoji: "🍞" }
+        ],
+        correcta: 0
+      },
+      {
+        actividadNum: 6,
+        categoria: "Actividad 6 • Pregunta 2: GUIRNALDA",
+        guionDocente: "Palabra 2: GUIRNALDA. Escucha la palabra y marca con una X la imagen de una GUIRNALDA.",
+        id: "p6_2",
+        tipo: "opcion_emoji",
+        pregunta: "Palabra 2: GUIRNALDA",
+        opciones: [
+          { label: "Guirnalda adorno", emoji: "🎗️" },
+          { label: "Zapato", emoji: "👟" },
+          { label: "Reloj", emoji: "⏰" }
+        ],
+        correcta: 0
+      },
+      {
+        actividadNum: 6,
+        categoria: "Actividad 6 • Pregunta 3: RISUEÑO",
+        guionDocente: "Palabra 3: RISUEÑO. Escucha la palabra y marca con una X la cara que se ve RISUEÑA.",
+        id: "p6_3",
+        tipo: "opcion_emoji",
+        pregunta: "Palabra 3: RISUEÑO",
+        opciones: [
+          { label: "Enojado", emoji: "😡" },
+          { label: "Triste", emoji: "😢" },
+          { label: "Muy sonriente", emoji: "😄" }
+        ],
+        correcta: 2
+      }
+    ];
+
+    // ESTADO GLOBAL CONTROL DE AUDIO Y NAVEGACIÓN
+    let pasoActualIndex = 0;
+    let respuestasGuardadas = {};
+    let vozActiva = true;
+    let audioActivoElem = null;
+    let abortControllerActual = null;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('total-steps-num').innerText = listaPasos.length;
+      renderizarPaso();
+    });
+
+    // RENDERIZADOR PRINCIPAL PASO A PASO
+    function renderizarPaso() {
+      // 1. Detener inmediatamente todo audio en reproducción antes de cambiar vista
+      detenerAudio();
+
+      const paso = listaPasos[pasoActualIndex];
+
+      // Encabezado
+      document.getElementById('current-step-num').innerText = pasoActualIndex + 1;
+      document.getElementById('act-category').innerText = paso.categoria;
+      document.getElementById('guion-text').innerText = paso.guionDocente;
+
+      // Barra de progreso
+      const porcentaje = ((pasoActualIndex + 1) / listaPasos.length) * 100;
+      document.getElementById('progress-bar').style.width = `${porcentaje}%`;
+
+      // Botones navegación
+      document.getElementById('btn-prev').disabled = (pasoActualIndex === 0);
+      if (pasoActualIndex === listaPasos.length - 1) {
+        document.getElementById('btn-next').innerHTML = `Finalizar <i class="fa-solid fa-check-double"></i>`;
+      } else {
+        document.getElementById('btn-next').innerHTML = `Siguiente <i class="fa-solid fa-arrow-right"></i>`;
+      }
+
+      const container = document.getElementById('activity-container');
+      container.innerHTML = '';
+
+      // Generar vista según tipo
+      if (paso.tipo === "sonidos") {
+        container.innerHTML = renderSonidos(paso);
+      } else if (paso.tipo === "opcion_texto") {
+        container.innerHTML = renderOpcionTexto(paso);
+      } else if (paso.tipo === "decodificacion") {
+        container.innerHTML = renderDecodificacion(paso);
+      } else if (paso.tipo === "numero_asociacion") {
+        container.innerHTML = renderNumeroAsociacion(paso);
+      } else if (paso.tipo === "cuento_lectura") {
+        container.innerHTML = renderCuento(paso);
+      } else if (paso.tipo === "opcion_emoji") {
+        container.innerHTML = renderOpcionEmoji(paso);
+      }
+
+      // 2. Autoreproducción del audio de la nueva pregunta sin ecos ni retrasos
+      if (vozActiva) {
+        // Breve retardo para permitir limpieza de AudioContext previa
+        setTimeout(() => {
+          reproducirVozGemini(paso.guionDocente);
+        }, 150);
+      }
+    }
+
+    // --- PLANTILLAS DE COMPONENTES SIMPLIFICADOS PARA 2° BÁSICO ---
+
+    function renderSonidos(paso) {
+      const userAns = respuestasGuardadas[paso.id || 'ejemplo'];
+      return `
+        <div class="flex flex-col items-center justify-center gap-6 py-4">
+          <span class="text-8xl p-4 bg-indigo-50/80 rounded-3xl border-2 border-indigo-100 shadow-sm">${paso.imagen}</span>
+          <h3 class="font-heading text-3xl font-bold text-slate-800 uppercase tracking-wide">${paso.palabra}</h3>
+          
+          <div class="w-full max-w-md grid grid-cols-3 gap-4 mt-2">
+            ${paso.opciones.map((op, idx) => `
+              <button onclick="seleccionarOpcion('${paso.id || 'ejemplo'}', ${idx})"
+                      class="card-option h-24 rounded-3xl border-4 ${userAns === idx ? 'border-brand-orange marked-x bg-orange-50' : 'border-slate-200 bg-white hover:border-brand-purple'} flex flex-col items-center justify-center font-heading text-3xl font-bold text-slate-800 shadow-md relative">
+                <span class="text-xs text-slate-400 font-sans absolute top-2 left-3 font-bold">${String.fromCharCode(65 + idx)}</span>
+                <span>${op}</span>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderOpcionTexto(paso) {
+      const userAns = respuestasGuardadas[paso.id || 'ejemplo'];
+      return `
+        <div class="flex flex-col gap-6 py-2">
+          <h3 class="font-heading text-xl md:text-2xl font-bold text-slate-800 leading-snug bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
+            <i class="fa-solid fa-circle-question text-brand-purple mr-2"></i> ${paso.pregunta}
+          </h3>
+
+          <div class="space-y-4">
+            ${paso.opciones.map((op, idx) => `
+              <button onclick="seleccionarOpcion('${paso.id || 'ejemplo'}', ${idx})"
+                      class="card-option w-full p-4 md:p-5 rounded-2xl border-3 ${userAns === idx ? 'border-brand-orange marked-x bg-orange-50' : 'border-slate-200 bg-white hover:border-brand-purple'} flex items-center gap-4 text-left shadow-sm">
+                <span class="w-10 h-10 rounded-xl bg-slate-100 font-heading font-bold text-lg text-slate-600 flex items-center justify-center shrink-0">${String.fromCharCode(65 + idx)}</span>
+                <span class="text-lg font-bold text-slate-800 whitespace-pre-line">${op}</span>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderDecodificacion(paso) {
+      const userAns = respuestasGuardadas[paso.id || 'ejemplo'];
+      return `
+        <div class="flex flex-col items-center gap-6 py-4">
+          <span class="text-8xl p-4 bg-indigo-50/80 rounded-3xl border-2 border-indigo-100 shadow-sm">${paso.imagen}</span>
+
+          <div class="w-full max-w-md space-y-3">
+            ${paso.opciones.map((op, idx) => `
+              <button onclick="seleccionarOpcion('${paso.id || 'ejemplo'}', ${idx})"
+                      class="card-option w-full py-4 px-6 rounded-2xl border-3 ${userAns === idx ? 'border-brand-orange marked-x bg-orange-50' : 'border-slate-200 bg-white hover:border-brand-purple'} flex items-center justify-between font-heading text-2xl font-bold text-slate-800 shadow-sm">
+                <span class="text-sm font-sans text-slate-400 font-bold">${String.fromCharCode(65 + idx)})</span>
+                <span>${op}</span>
+                <div class="w-4"></div>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderNumeroAsociacion(paso) {
+      const val = respuestasGuardadas[paso.id || 'ejemplo'] || '';
+      return `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center py-2">
+          <div class="bg-indigo-50/80 p-5 rounded-3xl border-2 border-indigo-100">
+            <h4 class="font-bold text-brand-purple text-sm uppercase tracking-wider mb-3">Lista de Palabras:</h4>
+            <ul class="space-y-2">
+              ${paso.palabras.map(p => `
+                <li class="bg-white p-3 rounded-xl font-bold text-lg text-slate-800 shadow-sm border border-indigo-100">
+                  ${p}
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+
+          <div class="flex flex-col items-center justify-center p-6 bg-slate-50 rounded-3xl border-2 border-slate-200 gap-4">
+            <span class="text-7xl">${paso.imagen}</span>
+            <span class="font-bold text-lg text-slate-700">${paso.label}</span>
+            <div class="flex items-center gap-3">
+              <label class="font-bold text-sm text-slate-600">Número:</label>
+              <input type="number" min="0" max="9" 
+                     value="${val}" 
+                     oninput="guardarNumero('${paso.id || 'ejemplo'}', this.value)"
+                     placeholder="?"
+                     class="w-16 h-16 text-center text-3xl font-heading font-bold rounded-2xl border-3 border-brand-purple bg-white text-slate-800 shadow-inner focus:outline-none focus:ring-4 focus:ring-indigo-200" />
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderCuento(paso) {
+      return `
+        <div class="flex flex-col items-center text-center gap-5 py-4">
+          <div class="w-20 h-20 bg-brand-purple text-white rounded-3xl flex items-center justify-center text-4xl shadow-lg shadow-brand-purple/30">
+            <i class="fa-solid fa-book-open"></i>
+          </div>
+          <h3 class="font-heading text-2xl font-bold text-slate-800">${paso.titulo}</h3>
+          
+          <button onclick="reproducirVozGemini('${paso.textoCuento.replace(/'/g, "")}')" class="px-6 py-4 bg-brand-green hover:bg-emerald-600 text-white font-extrabold rounded-2xl shadow-lg transition-all flex items-center gap-3 text-lg">
+            <i class="fa-solid fa-volume-high text-xl"></i> Escuchar el Cuento Completo
+          </button>
+
+          <div class="mt-4 p-5 bg-indigo-50/60 border border-indigo-100 rounded-2xl text-left max-h-52 overflow-y-auto">
+            <p class="text-sm md:text-base text-slate-700 font-medium leading-relaxed">${paso.textoCuento}</p>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderOpcionEmoji(paso) {
+      const userAns = respuestasGuardadas[paso.id || 'ejemplo'];
+      return `
+        <div class="flex flex-col gap-6 py-2">
+          <h3 class="font-heading text-xl md:text-2xl font-bold text-slate-800 bg-indigo-50 p-4 rounded-2xl border border-indigo-100 text-center">
+            ${paso.pregunta}
+          </h3>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            ${paso.opciones.map((op, idx) => `
+              <button onclick="seleccionarOpcion('${paso.id || 'ejemplo'}', ${idx})"
+                      class="card-option p-6 rounded-3xl border-3 ${userAns === idx ? 'border-brand-orange marked-x bg-orange-50' : 'border-slate-200 bg-white hover:border-brand-purple'} flex flex-col items-center justify-center gap-3 shadow-sm text-center">
+                <span class="text-6xl">${op.emoji}</span>
+                <span class="font-heading font-bold text-lg text-slate-800">${op.label}</span>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    // ACCIONES DE BANNER Y RINCÓN
+    function cerrarBannerEstudiante() {
+      document.getElementById('banner-estudiante').classList.add('hidden');
+    }
+
+    function abrirRincon() {
+      detenerAudio();
+      document.getElementById('modal-rincon').classList.remove('hidden');
+    }
+
+    function cerrarRincon() {
+      document.getElementById('modal-rincon').classList.add('hidden');
+    }
+
+    // ACCIONES
+    function seleccionarOpcion(id, idx) {
+      if (!id) return;
+      respuestasGuardadas[id] = idx;
+      renderizarPaso();
+    }
+
+    function guardarNumero(id, val) {
+      if (!id) return;
+      respuestasGuardadas[id] = val;
+    }
+
+    function cambiarPaso(delta) {
+      const nuevoIndex = pasoActualIndex + delta;
+      if (nuevoIndex >= 0 && nuevoIndex < listaPasos.length) {
+        pasoActualIndex = nuevoIndex;
+        renderizarPaso();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (nuevoIndex >= listaPasos.length) {
+        mostrarModalFinal();
+      }
+    }
+
+    function mostrarModalFinal() {
+      detenerAudio();
+      document.getElementById('stat-respuestas').innerText = Object.keys(respuestasGuardadas).length;
+      document.getElementById('modal-final').classList.remove('hidden');
+      if (vozActiva) {
+        reproducirVozGenerica("¡Felicitaciones! Has completado toda la prueba. Recuerda cruzar los brazos sobre la mesa para indicar que terminaste.");
+      }
+    }
+
+    function reiniciarSimulador() {
+      respuestasGuardadas = {};
+      pasoActualIndex = 0;
+      document.getElementById('modal-final').classList.add('hidden');
+      renderizarPaso();
+    }
+
+    // --- SISTEMA ROBUSTO DE AUDIO GENÉRICO Y NATIVO (SIN ERRORES DE API NI SOLAPAMIENTOS) ---
+
+    function setEstadoAvatarHablando(hablando) {
+      const avatarBtn = document.getElementById('avatar-btn');
+      const repeatIcon = document.getElementById('repeat-icon');
+      const repeatText = document.getElementById('repeat-text');
+      
+      if (hablando) {
+        avatarBtn.classList.add('speaking');
+        if (repeatIcon) repeatIcon.className = "fa-solid fa-waveform text-[10px] animate-bounce";
+        if (repeatText) repeatText.innerText = "Hablando...";
+      } else {
+        avatarBtn.classList.remove('speaking');
+        if (repeatIcon) repeatIcon.className = "fa-solid fa-play text-[10px]";
+        if (repeatText) repeatText.innerText = "Repetir voz";
+      }
+    }
+
+    function reproducirVozGenerica(texto) {
+      detenerAudio();
+      if (!vozActiva || !texto) return;
+
+      // Utilizar de forma primaria la síntesis de voz nativa del navegador para máxima estabilidad y compatibilidad offline
+      if ('speechSynthesis' in window) {
+        try {
+          const utterance = new SpeechSynthesisUtterance(texto);
+          utterance.lang = 'es-ES';
+          utterance.rate = 0.88; // Velocidad pausada idónea para niños
+          utterance.pitch = 1.0;
+
+          // Intentar seleccionar una voz en español clara
+          const voces = window.speechSynthesis.getVoices();
+          const vozEs = voces.find(v => v.lang.startsWith('es'));
+          if (vozEs) utterance.voice = vozEs;
+
+          utterance.onstart = () => setEstadoAvatarHablando(true);
+          utterance.onend = () => setEstadoAvatarHablando(false);
+          utterance.onerror = () => setEstadoAvatarHablando(false);
+
+          window.speechSynthesis.speak(utterance);
+        } catch (e) {
+          console.warn("Error con síntesis de voz nativa:", e);
+          setEstadoAvatarHablando(false);
+        }
+      } else {
+        setEstadoAvatarHablando(false);
+      }
+    }
+
+    // Aliases para compatibilidad con botones existentes
+    function reproducirVozGemini(texto) {
+      reproducirVozGenerica(texto);
+    }
+
+    function reproducirAudioActual() {
+      const paso = listaPasos[pasoActualIndex];
+      reproducirVozGenerica(paso.guionDocente);
+    }
+
+    function toggleAudio() {
+      vozActiva = !vozActiva;
+      const icon = document.getElementById('audio-icon');
+      const btnText = document.getElementById('audio-btn-text');
+
+      if (vozActiva) {
+        icon.className = "fa-solid fa-volume-high text-amber-700 text-base";
+        btnText.innerText = "Voz Activada";
+        reproducirAudioActual();
+      } else {
+        icon.className = "fa-solid fa-volume-xmark text-slate-400 text-base";
+        btnText.innerText = "Voz Silenciada";
+        detenerAudio();
+      }
+    }
+
+    function detenerAudio() {
+      setEstadoAvatarHablando(false);
+
+      if (abortControllerActual) {
+        abortControllerActual.abort();
+        abortControllerActual = null;
+      }
+
+      if (audioActivoElem) {
+        audioActivoElem.pause();
+        audioActivoElem.currentTime = 0;
+        audioActivoElem = null;
+      }
+
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    }
+  </script>
+</body>
+</html>
+```
